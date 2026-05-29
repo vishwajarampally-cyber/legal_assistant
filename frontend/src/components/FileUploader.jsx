@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import axios from 'axios';
 
 const MAX_FILES = 50;
+const UPLOAD_BATCH_SIZE = 10;
 const VALID_EXTENSIONS = ['pdf', 'docx', 'txt'];
 
 export default function FileUploader({
@@ -15,6 +16,7 @@ export default function FileUploader({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [pipelineStep, setPipelineStep] = useState(0);
   const [errorMsg, setErrorMsg] = useState('');
+  const [uploadStatus, setUploadStatus] = useState('');
   const fileInputRef = useRef(null);
 
   const handleDragOver = (e) => {
@@ -75,39 +77,54 @@ export default function FileUploader({
     setIsUploading(true);
     setUploadProgress(0);
     setPipelineStep(0);
+    setUploadStatus(`Preparing ${files.length} file${files.length === 1 ? '' : 's'} for upload...`);
     const cleanupPipeline = simulatePipeline();
 
-    const formData = new FormData();
-    files.forEach((file) => formData.append('files', file));
-
     try {
-      const response = await axios.post(`${backendUrl}/api/upload`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        onUploadProgress: (event) => {
-          if (!event.total) return;
-          const percent = Math.round((event.loaded * 100) / event.total);
-          setUploadProgress(percent * 0.85);
-        },
-      });
+      const indexedFiles = [];
+      const totalBatches = Math.ceil(files.length / UPLOAD_BATCH_SIZE);
 
-      cleanupPipeline();
-      setPipelineStep(5);
-      setUploadProgress(100);
+      for (let batchIndex = 0; batchIndex < totalBatches; batchIndex += 1) {
+        const start = batchIndex * UPLOAD_BATCH_SIZE;
+        const batch = files.slice(start, start + UPLOAD_BATCH_SIZE);
+        const formData = new FormData();
+        batch.forEach((file) => formData.append('files', file));
 
-      setTimeout(() => {
-        setIsUploading(false);
-        const indexedFiles = response.data.files || [];
-        onUploadSuccess(indexedFiles.map((file) => ({
+        setUploadStatus(`Uploading batch ${batchIndex + 1} of ${totalBatches} (${batch.length} file${batch.length === 1 ? '' : 's'})...`);
+
+        const response = await axios.post(`${backendUrl}/api/upload`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          onUploadProgress: (event) => {
+            if (!event.total) return;
+            const batchPercent = event.loaded / event.total;
+            const overallPercent = ((batchIndex + batchPercent) / totalBatches) * 85;
+            setUploadProgress(overallPercent);
+          },
+        });
+
+        indexedFiles.push(...(response.data.files || []));
+        onUploadSuccess((response.data.files || []).map((file) => ({
           name: file.filename,
           chunkCount: file.chunkCount,
           charCount: file.charCount,
         })));
+      }
+
+      cleanupPipeline();
+      setPipelineStep(5);
+      setUploadProgress(100);
+      setUploadStatus(`Indexed ${indexedFiles.length} legal document${indexedFiles.length === 1 ? '' : 's'} successfully.`);
+
+      setTimeout(() => {
+        setIsUploading(false);
+        setUploadStatus('');
       }, 700);
     } catch (error) {
       cleanupPipeline();
       setIsUploading(false);
       setUploadProgress(0);
       setPipelineStep(0);
+      setUploadStatus('');
       setErrorMsg(error.response?.data?.error || error.message || 'An error occurred during file ingestion.');
       console.error('File upload error:', error);
     }
@@ -189,7 +206,7 @@ export default function FileUploader({
       {isUploading && (
         <div className="progress-container">
           <div className="progress-header">
-            <span>Legal assistant pipeline in progress</span>
+            <span>{uploadStatus || 'Legal assistant pipeline in progress'}</span>
             <span>{Math.round(uploadProgress)}%</span>
           </div>
           <div className="progress-track">
