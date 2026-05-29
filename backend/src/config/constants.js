@@ -1,0 +1,10 @@
+export const DENSE_TOP_K = 20;
+export const HYBRID_TOP_K = 32;
+export const RERANK_TOP_K = 10;
+export const FINAL_CONTEXT_K = 5;
+export const SEMANTIC_WEIGHT = 0.65;
+export const KEYWORD_WEIGHT = 0.35;
+export const SEMANTIC_FALLBACK_THRESHOLD = 0.28;
+export const MAX_FILE_SIZE = 15 * 1024 * 1024;
+export const SUPPORTED_EXTENSIONS = ['pdf', 'docx', 'txt'];
+export const DEFAULT_NAMESPACE_SEPARATOR = '_';
