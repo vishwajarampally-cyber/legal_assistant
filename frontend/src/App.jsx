@@ -4,7 +4,8 @@ import ChatInterface from './components/ChatInterface.jsx';
 
 export default function App() {
   const [uploadedFiles, setUploadedFiles] = useState([]);
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:5000';
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL
+    || (import.meta.env.PROD ? window.location.origin : 'http://127.0.0.1:5000');
 
   const handleUploadSuccess = (files) => {
     const uploadedBatch = Array.isArray(files) ? files : [files];
