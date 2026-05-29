@@ -1,33 +1,14 @@
 {
-  "version": 2,
-  "builds": [
+  "buildCommand": "npm run build",
+  "outputDirectory": "frontend/dist",
+  "rewrites": [
     {
-      "src": "backend/index.js",
-      "use": "@vercel/node"
+      "source": "/health",
+      "destination": "/api/health"
     },
     {
-      "src": "frontend/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "backend/index.js"
-    },
-    {
-      "src": "/health",
-      "dest": "backend/index.js"
-    },
-    {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
