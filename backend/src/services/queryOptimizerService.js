@@ -11,6 +11,10 @@ export class QueryOptimizerService {
       const historyText = this.buildConversationHistory(conversationHistory);
       const prompt = `Rewrite the user query into a retrieval-optimized search query for document retrieval. Preserve the user's original intent, expand short or ambiguous phrases, and keep queries focused on the uploaded document content. Do not hallucinate new facts.
 
+If the query is an incomplete fragment, infer only the missing question shape, not the answer. For example:
+- "Bharatiya_Nagarik_Suraksha_Sanhita is issued in" -> "Bharatiya Nagarik Suraksha Sanhita issued in which year date"
+- "is there any law related to ai" -> "law related to artificial intelligence AI legal provisions"
+
 Original Query:
 ${originalQuery}
 

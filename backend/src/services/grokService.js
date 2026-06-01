@@ -93,13 +93,24 @@ export class GrokService {
       ? retrievedChunks.map((chunk, index) => {
           const source = chunk.source || 'Unknown file';
           const location = chunk.pageNumber ? `page ${chunk.pageNumber}` : `chunk ${chunk.chunkIndex + 1}`;
-          return `[Source ${index + 1}: ${source}, ${location}]\n${chunk.text}`;
+          const readableSource = this.toReadableSourceName(source);
+          return `[Source ${index + 1}: ${source}, ${location}]
+Document title from filename: ${readableSource}
+Document text:
+${chunk.text}`;
         }).join('\n\n')
       : 'No relevant document context found.';
 
     const historyText = this.buildConversationHistory(conversationHistory);
-    const fallback = 'Answer not found in the uploaded documents.';
-    const systemPrompt = `You are a domain-specific Multi-Document Legal RAG Assistant. Answer legal questions ONLY with facts present in the supplied uploaded-document context. You may use conversation history only to understand follow-up questions, never as an independent factual source. If the answer is not directly supported by the uploaded-document context, reply exactly: "${fallback}" Include concise source citations in the answer when support exists, using filenames from the context.`;
+    const fallbackDisclaimer = 'Note: This answer is not directly supported by the uploaded documents.';
+    const systemPrompt = `You are a domain-specific Multi-Document Legal RAG Assistant. Use the supplied uploaded-document context to answer legal questions when the context supports the answer.
+
+Important behavior:
+- Treat incomplete user inputs as question fragments when the intent is clear. For example, "Bharatiya Nagarik Suraksha Sanhita is issued in" should be understood as asking for the year/date of issue.
+- You may use document titles/filenames as uploaded-document metadata. If a year or legal title appears in the filename, it is valid context, but say that support comes from the filename/source.
+- If the documents do not contain enough information to answer directly, provide your best effort response and append this disclaimer exactly: "${fallbackDisclaimer}".
+- Include concise source citations in the answer when support exists, using filenames from the context.
+- Do not invent citations or claim the documents support facts they do not.`;
 
     const userMessage = `Conversation History:
 ${historyText}
@@ -138,9 +149,11 @@ Answer:`;
 
       let finalAnswer = response.choices[0].message.content.trim();
 
-      // Normalize the grounding fallback if the model adds extra text around it.
-      if (finalAnswer.toLowerCase().includes('answer not found in the uploaded document')) {
-        finalAnswer = fallback;
+      const metadataAnswer = this.answerFromDocumentMetadata(question, retrievedChunks);
+      if (this.isNotFoundAnswer(finalAnswer) && metadataAnswer) {
+        finalAnswer = metadataAnswer;
+      } else if (finalAnswer.toLowerCase().includes('answer not found in the uploaded document')) {
+        finalAnswer = finalAnswer.replace(/answer not found in the uploaded document/gi, fallbackDisclaimer);
       }
 
       console.log(`[LLM API] Response received from ${config.model}: ${finalAnswer.substring(0, 100)}...`);
@@ -169,5 +182,84 @@ Answer:`;
       .slice(-8)
       .map((item) => `${item.sender === 'user' ? 'User' : 'Assistant'}: ${item.text}`)
       .join('\n');
+  }
+
+  static isNotFoundAnswer(answer) {
+    return /answer\s+not\s+found\s+in\s+the\s+uploaded\s+documents?/i.test(answer || '');
+  }
+
+  static answerFromDocumentMetadata(question, retrievedChunks = []) {
+    const normalizedQuestion = this.normalizeText(question);
+    const asksIssuedYear = /\b(issued|enacted|published|notified)\b/.test(normalizedQuestion)
+      && (/\b(year|date|when)\b/.test(normalizedQuestion) || /\bin\s*$/.test(normalizedQuestion));
+
+    if (!asksIssuedYear || !Array.isArray(retrievedChunks) || retrievedChunks.length === 0) {
+      return null;
+    }
+
+    const sourcesByYear = new Map();
+    for (const chunk of retrievedChunks) {
+      const source = chunk.source || '';
+      const readableSource = this.toReadableSourceName(source);
+      const normalizedSource = this.normalizeText(readableSource);
+      const yearMatch = normalizedSource.match(/\b(19|20)\d{2}\b/);
+
+      if (!source || !yearMatch || !this.hasMeaningfulSubjectOverlap(normalizedQuestion, normalizedSource)) {
+        continue;
+      }
+
+      const year = yearMatch[0];
+      if (!sourcesByYear.has(year)) {
+        sourcesByYear.set(year, new Set());
+      }
+      sourcesByYear.get(year).add(source);
+    }
+
+    if (sourcesByYear.size === 0) {
+      return null;
+    }
+
+    const [year, sourceSet] = [...sourcesByYear.entries()]
+      .sort((a, b) => b[1].size - a[1].size)[0];
+    const citedSources = [...sourceSet].slice(0, 4);
+    const subject = this.inferSubjectFromQuestion(question);
+
+    return `${subject} is issued in the year ${year}, based on the year shown in the uploaded document filenames. (Source: ${citedSources.join(', ')})`;
+  }
+
+  static hasMeaningfulSubjectOverlap(question, source) {
+    const ignored = new Set(['issued', 'enacted', 'published', 'notified', 'year', 'date', 'when', 'which', 'section', 'pdf']);
+    const questionTokens = this.normalizeText(question)
+      .split(/\s+/)
+      .filter((token) => token.length > 2 && !ignored.has(token));
+    const sourceTokens = new Set(this.normalizeText(source).split(/\s+/));
+    const matches = questionTokens.filter((token) => sourceTokens.has(token));
+    return matches.length >= Math.min(3, questionTokens.length);
+  }
+
+  static inferSubjectFromQuestion(question) {
+    const cleaned = String(question || '')
+      .replace(/[_-]+/g, ' ')
+      .replace(/\b(is|was|were|are)?\s*(issued|enacted|published|notified)\s*(in|on|when|which year|what year)?\s*\??\s*$/i, '')
+      .trim();
+
+    return cleaned || 'The requested legal document';
+  }
+
+  static toReadableSourceName(source) {
+    return String(source || 'Unknown file')
+      .replace(/\.[^.]+$/g, '')
+      .replace(/[_-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  static normalizeText(text) {
+    return String(text || '')
+      .toLowerCase()
+      .replace(/[_-]+/g, ' ')
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 }
