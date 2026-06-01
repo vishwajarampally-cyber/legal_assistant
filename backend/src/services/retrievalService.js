@@ -4,6 +4,7 @@ import { VectorService } from './vectorService.js';
 import { QueryOptimizerService } from './queryOptimizerService.js';
 import { SparseSearchService } from './sparseSearchService.js';
 import { RerankerService } from './rerankerService.js';
+import { LangSmithService } from './langsmithService.js';
 import {
   DENSE_TOP_K,
   HYBRID_TOP_K,
@@ -24,6 +25,21 @@ export class RetrievalService {
   }
 
   static async queryDocuments({ question, filenames = [], conversationHistory = [] }) {
+    const tracedQueryDocuments = LangSmithService.traceFunction(
+      async (input) => this.queryDocumentsInternal(input),
+      {
+        name: 'Legal RAG Query',
+        run_type: 'chain',
+        metadata: {
+          service: 'retrievalService',
+        },
+      }
+    );
+
+    return tracedQueryDocuments({ question, filenames, conversationHistory });
+  }
+
+  static async queryDocumentsInternal({ question, filenames = [], conversationHistory = [] }) {
     const originalQuery = String(question || '').trim();
     if (!originalQuery) {
       throw new Error('The query body is required.');

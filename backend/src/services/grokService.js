@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { LangSmithService } from './langsmithService.js';
 
 /**
  * Service to interface with OpenAI-compatible LLM providers.
@@ -71,9 +72,18 @@ export class GrokService {
 
     console.log(`[LLM CLIENT] Initializing ${config.label} client with baseURL: ${config.baseURL}`);
 
-    return new OpenAI({
+    const client = new OpenAI({
       apiKey: config.apiKey,
       baseURL: config.baseURL,
+    });
+
+    return LangSmithService.wrapOpenAIClient(client, {
+      name: `${config.label} Chat Completion`,
+      metadata: {
+        provider: config.name,
+        model: config.model,
+        baseURL: config.baseURL,
+      },
     });
   }
 
@@ -84,6 +94,23 @@ export class GrokService {
    * @returns {Promise<string>} Clean, grounded answer or the negative fallback.
    */
   static async generateAnswer(question, retrievedChunks, conversationHistory = []) {
+    const tracedGenerateAnswer = LangSmithService.traceFunction(
+      async ({ question: tracedQuestion, retrievedChunks: tracedChunks, conversationHistory: tracedHistory }) => (
+        this.generateAnswerInternal(tracedQuestion, tracedChunks, tracedHistory)
+      ),
+      {
+        name: 'Generate Grounded Legal Answer',
+        run_type: 'chain',
+        metadata: {
+          service: 'grokService',
+        },
+      }
+    );
+
+    return tracedGenerateAnswer({ question, retrievedChunks, conversationHistory });
+  }
+
+  static async generateAnswerInternal(question, retrievedChunks, conversationHistory = []) {
     if (!question) {
       throw new Error('User question is required.');
     }

@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import apiRouter from './src/routes/api.js';
 import { errorHandler } from './src/middleware/errorHandler.js';
+import { LangSmithService } from './src/services/langsmithService.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -26,6 +27,7 @@ app.get('/health', (req, res) => {
     status: 'online',
     message: 'Simple Naive RAG backend is running optimally.',
     timestamp: new Date().toISOString(),
+    langsmith: LangSmithService.getStatus(),
   });
 });
 
