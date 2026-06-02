@@ -134,9 +134,11 @@ ${chunk.text}`;
 
 Important behavior:
 - Treat incomplete user inputs as question fragments when the intent is clear. For example, "Bharatiya Nagarik Suraksha Sanhita is issued in" should be understood as asking for the year/date of issue.
-- You may use document titles/filenames as uploaded-document metadata. If a year or legal title appears in the filename, it is valid context, but say that support comes from the filename/source.
+- You may use document titles/filenames as uploaded-document metadata. If a year or legal title appears in the filename, it is valid context.
 - If the documents do not contain enough information to answer directly, provide your best effort response and append this disclaimer exactly: "${fallbackDisclaimer}".
-- Include concise source citations in the answer when support exists, using filenames from the context.
+- Do not include filenames, source labels, citation text, or document-name lists in the answer. The user interface displays citations separately.
+- Answer only the user's question. Keep the response concise, readable, and focused on the legal point.
+- Use short paragraphs or numbered/bulleted points when that makes the answer easier to read.
 - Do not invent citations or claim the documents support facts they do not.`;
 
     const userMessage = `Conversation History:
@@ -182,6 +184,8 @@ Answer:`;
       } else if (finalAnswer.toLowerCase().includes('answer not found in the uploaded document')) {
         finalAnswer = finalAnswer.replace(/answer not found in the uploaded document/gi, fallbackDisclaimer);
       }
+
+      finalAnswer = this.cleanAnswerForDisplay(finalAnswer);
 
       console.log(`[LLM API] Response received from ${config.model}: ${finalAnswer.substring(0, 100)}...`);
       return finalAnswer;
@@ -251,7 +255,17 @@ Answer:`;
     const citedSources = [...sourceSet].slice(0, 4);
     const subject = this.inferSubjectFromQuestion(question);
 
-    return `${subject} is issued in the year ${year}, based on the year shown in the uploaded document filenames. (Source: ${citedSources.join(', ')})`;
+    return `${subject} is issued in the year ${year}.`;
+  }
+
+  static cleanAnswerForDisplay(answer) {
+    return String(answer || '')
+      .replace(/\n?\s*(sources?|citations?)\s*:\s*.+$/gim, '')
+      .replace(/\n?\s*\((sources?|citations?)\s*:\s*[^)]*\)/gim, '')
+      .replace(/\s*Support comes from (the )?(filename|source|filename\/source)\.?\s*/gi, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .replace(/[ \t]{2,}/g, ' ')
+      .trim();
   }
 
   static hasMeaningfulSubjectOverlap(question, source) {

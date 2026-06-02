@@ -1,4 +1,5 @@
 import { IngestionService } from '../services/ingestionService.js';
+import { DocumentStoreService } from '../services/documentStoreService.js';
 import fs from 'fs/promises';
 
 export async function handleUpload(req, res, next) {
@@ -34,7 +35,14 @@ export async function handleUpload(req, res, next) {
 
       console.log(`[UPLOAD] Legal document received: ${originalname} (${mimetype}), size ${buffer.length} bytes`);
 
+      const storedDocument = await DocumentStoreService.saveUploadedDocument({ buffer, originalname, mimetype });
       const result = await IngestionService.ingestDocument({ buffer, originalname, mimetype });
+      await DocumentStoreService.upsertDocument({
+        ...storedDocument,
+        chunkCount: result.chunkCount,
+        charCount: result.charCount,
+      });
+
       results.push(result);
     }
 

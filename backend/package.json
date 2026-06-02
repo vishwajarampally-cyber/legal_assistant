@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "dev": "node --watch index.js"
+    "dev": "node --watch --watch-path=src --watch-path=index.js index.js"
   },
   "dependencies": {
     "@langchain/core": "^0.3.0",

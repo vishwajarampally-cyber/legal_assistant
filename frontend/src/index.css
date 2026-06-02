@@ -738,6 +738,46 @@ body {
   line-height: 1.6;
 }
 
+.answer-line {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.answer-line + .answer-line {
+  margin-top: 0.45rem;
+}
+
+.answer-space {
+  height: 0.45rem;
+}
+
+.answer-bullet {
+  position: relative;
+  padding-left: 1rem;
+}
+
+.answer-bullet::before {
+  content: "";
+  position: absolute;
+  left: 0.15rem;
+  top: 0.72em;
+  width: 0.32rem;
+  height: 0.32rem;
+  border-radius: 50%;
+  background: var(--accent-cyan);
+}
+
+.answer-numbered {
+  display: grid;
+  grid-template-columns: 1.5rem 1fr;
+  gap: 0.25rem;
+}
+
+.answer-numbered span:first-child {
+  color: var(--accent-cyan);
+  font-weight: 700;
+}
+
 .message-bubble.user .bubble-text {
   background: var(--bg-chat-user);
   color: white;

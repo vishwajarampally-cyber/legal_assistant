@@ -6,6 +6,7 @@ import { handleUpload } from '../controllers/uploadController.js';
 import { handleQuery } from '../controllers/queryController.js';
 import { requestLogger } from '../middleware/requestLogger.js';
 import { VectorService } from '../services/vectorService.js';
+import { DocumentStoreService } from '../services/documentStoreService.js';
 
 const router = express.Router();
 
@@ -58,6 +59,19 @@ const upload = multer({
 router.post('/upload', upload.array('files', 50), handleUpload);
 router.post('/query', handleQuery);
 
+router.get('/documents', async (req, res, next) => {
+  try {
+    const documents = await DocumentStoreService.listDocuments();
+    return res.status(200).json({
+      success: true,
+      documents,
+    });
+  } catch (error) {
+    console.error('[DOCUMENT LIST ERROR]', error);
+    next(error);
+  }
+});
+
 router.delete('/reset', async (req, res, next) => {
   try {
     const { filename } = req.query;
@@ -66,9 +80,10 @@ router.delete('/reset', async (req, res, next) => {
     }
 
     await VectorService.deleteVectorsByFilename(filename);
+    await DocumentStoreService.deleteDocument(filename);
     return res.status(200).json({
       success: true,
-      message: `Successfully cleared vector database index context for: ${filename}`,
+      message: `Successfully cleared backend document and vector index context for: ${filename}`,
     });
   } catch (error) {
     console.error('[RESET ERROR]', error);

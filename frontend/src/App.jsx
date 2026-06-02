@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 import FileUploader from './components/FileUploader.jsx';
 import ChatInterface from './components/ChatInterface.jsx';
 
@@ -6,6 +7,33 @@ export default function App() {
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL
     || (import.meta.env.PROD ? window.location.origin : 'http://127.0.0.1:5000');
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadBackendDocuments() {
+      try {
+        const response = await axios.get(`${BACKEND_URL}/api/documents`);
+        if (!isMounted) return;
+
+        const backendFiles = (response.data.documents || []).map((file) => ({
+          name: file.filename,
+          chunkCount: file.chunkCount || 0,
+          charCount: file.charCount || 0,
+        }));
+
+        setUploadedFiles(backendFiles.slice(0, 50));
+      } catch (error) {
+        console.warn('Could not load backend document catalog:', error.message || error);
+      }
+    }
+
+    loadBackendDocuments();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [BACKEND_URL]);
 
   const handleUploadSuccess = (files) => {
     const uploadedBatch = Array.isArray(files) ? files : [files];

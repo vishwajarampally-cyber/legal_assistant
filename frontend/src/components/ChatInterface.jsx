@@ -1,6 +1,39 @@
 import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 
+function AnswerText({ text = '', isFallback = false, isError = false }) {
+  const lines = String(text).split(/\r?\n/);
+
+  return (
+    <div className={`bubble-text ${isFallback ? 'fallback' : ''} ${isError ? 'fallback' : ''}`}>
+      {lines.map((line, index) => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          return <div key={index} className="answer-space" />;
+        }
+
+        const bulletMatch = trimmed.match(/^[-*]\s+(.+)$/);
+        const numberedMatch = trimmed.match(/^(\d+)[.)]\s+(.+)$/);
+
+        if (bulletMatch) {
+          return <div key={index} className="answer-line answer-bullet">{bulletMatch[1]}</div>;
+        }
+
+        if (numberedMatch) {
+          return (
+            <div key={index} className="answer-line answer-numbered">
+              <span>{numberedMatch[1]}.</span>
+              <span>{numberedMatch[2]}</span>
+            </div>
+          );
+        }
+
+        return <p key={index} className="answer-line">{trimmed}</p>;
+      })}
+    </div>
+  );
+}
+
 export default function ChatInterface({ uploadedFiles = [], backendUrl }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -131,9 +164,7 @@ export default function ChatInterface({ uploadedFiles = [], backendUrl }) {
             </div>
 
             <div className="bubble-content">
-              <div className={`bubble-text ${msg.isFallback ? 'fallback' : ''} ${msg.isError ? 'fallback' : ''}`}>
-                {msg.text}
-              </div>
+              <AnswerText text={msg.text} isFallback={msg.isFallback} isError={msg.isError} />
 
               {msg.sender === 'ai' && msg.retrievedChunks && msg.retrievedChunks.length > 0 && (
                 <div className="citations-box">
