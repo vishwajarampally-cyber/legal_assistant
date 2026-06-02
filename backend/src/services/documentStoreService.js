@@ -1,10 +1,14 @@
 import fs from 'fs/promises';
+import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { DEFAULT_DOCUMENTS } from '../config/defaultDocuments.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DEFAULT_DATA_DIR = path.resolve(__dirname, '../../data');
+const DEFAULT_DATA_DIR = process.env.VERCEL
+  ? path.join(os.tmpdir(), 'legal-assistant-data')
+  : path.resolve(__dirname, '../../data');
 
 function safeStoredName(filename) {
   const ext = path.extname(filename);
@@ -30,13 +34,13 @@ export class DocumentStoreService {
   }
 
   static async readManifest() {
-    await this.ensureStore();
     try {
+      await this.ensureStore();
       const raw = await fs.readFile(this.getManifestPath(), 'utf8');
       const parsed = JSON.parse(raw);
       return Array.isArray(parsed.documents) ? parsed.documents : [];
     } catch (error) {
-      if (error.code === 'ENOENT') return [];
+      if (['ENOENT', 'EROFS', 'EACCES'].includes(error.code)) return [];
       throw error;
     }
   }
@@ -90,7 +94,9 @@ export class DocumentStoreService {
 
   static async listDocuments() {
     const documents = await this.readManifest();
-    return documents
+    const mergedDocuments = this.mergeDocuments(DEFAULT_DOCUMENTS, documents);
+
+    return mergedDocuments
       .map(({ filename, mimetype, size, chunkCount, charCount, uploadedAt, indexedAt }) => ({
         filename,
         mimetype,
@@ -101,6 +107,17 @@ export class DocumentStoreService {
         indexedAt,
       }))
       .sort((a, b) => new Date(a.uploadedAt || 0) - new Date(b.uploadedAt || 0));
+  }
+
+  static mergeDocuments(seedDocuments, storedDocuments) {
+    const byFilename = new Map();
+    for (const document of seedDocuments || []) {
+      if (document?.filename) byFilename.set(document.filename, document);
+    }
+    for (const document of storedDocuments || []) {
+      if (document?.filename) byFilename.set(document.filename, document);
+    }
+    return [...byFilename.values()];
   }
 
   static async listFilenames() {
