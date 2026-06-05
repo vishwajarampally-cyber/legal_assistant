@@ -7,7 +7,6 @@ export class QueryOptimizerService {
     }
 
     try {
-      const client = GrokService.getGrokClient();
       const historyText = this.buildConversationHistory(conversationHistory);
       const prompt = `Rewrite the user query into a retrieval-optimized search query for document retrieval. Preserve the user's original intent, expand short or ambiguous phrases, and keep queries focused on the uploaded document content. Do not hallucinate new facts.
 
@@ -23,8 +22,7 @@ ${historyText}
 
 Please provide only the rewritten query in one sentence or phrase.`;
 
-      const response = await client.chat.completions.create({
-        model: GrokService.getProviderConfig().model,
+      const response = await GrokService.chatCompletion({
         temperature: 0.0,
         max_tokens: 80,
         messages: [

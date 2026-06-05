@@ -4,6 +4,7 @@ import os from 'os';
 import path from 'path';
 import { handleUpload } from '../controllers/uploadController.js';
 import { handleQuery } from '../controllers/queryController.js';
+import { runEvaluation, getLatestEvaluation, getHistory, getAnalytics } from '../controllers/evaluationController.js';
 import { requestLogger } from '../middleware/requestLogger.js';
 import { VectorService } from '../services/vectorService.js';
 import { DocumentStoreService } from '../services/documentStoreService.js';
@@ -58,6 +59,11 @@ const upload = multer({
 
 router.post('/upload', upload.array('files', 50), handleUpload);
 router.post('/query', handleQuery);
+
+router.post('/evaluation/run', runEvaluation);
+router.get('/evaluation/latest', getLatestEvaluation);
+router.get('/evaluation/history', getHistory);
+router.get('/evaluation/analytics', getAnalytics);
 
 router.get('/documents', async (req, res, next) => {
   try {

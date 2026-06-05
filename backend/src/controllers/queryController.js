@@ -1,5 +1,6 @@
 import { RetrievalService } from '../services/retrievalService.js';
 import { DocumentStoreService } from '../services/documentStoreService.js';
+import { EvaluationService } from '../services/evaluationService.js';
 
 export async function handleQuery(req, res, next) {
   try {
@@ -28,6 +29,20 @@ export async function handleQuery(req, res, next) {
       filenames: scopedFilenames,
       conversationHistory,
     });
+
+    const evaluationPayload = {
+      question: question.trim(),
+      answer: response.finalAnswer || response.answer || '',
+      retrieved_contexts: (response.citations || response.retrievedChunks || []).map((chunk) => chunk.text || '').filter(Boolean),
+      ground_truth: String(req.body.ground_truth || '').trim(),
+    };
+
+    try {
+      const evaluation = await EvaluationService.runEvaluation(evaluationPayload);
+      response.evaluation = evaluation;
+    } catch (err) {
+      console.warn('[EVALUATION WARNING] Could not compute evaluation for query.', err.message);
+    }
 
     return res.status(200).json(response);
   } catch (error) {

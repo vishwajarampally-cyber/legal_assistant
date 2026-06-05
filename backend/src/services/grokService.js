@@ -88,6 +88,75 @@ export class GrokService {
   }
 
   /**
+   * Centralized method to create chat completions with robust error handling and automatic model fallback.
+   * @param {Object} options - OpenAI chat completion options
+   * @returns {Promise<Object>} The API response from the first successful model attempt.
+   */
+  static async chatCompletion(options) {
+    const config = this.getProviderConfig();
+    const client = this.getGrokClient();
+
+    const requestedModel = options.model || config.model;
+    const provider = this.PROVIDERS[config.name] || this.PROVIDERS.groq;
+
+    // Define fallback models list
+    const fallbacks = config.name === 'xai'
+      ? ['grok-4.3', 'grok-4.20', 'grok-3-mini']
+      : ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
+
+    // Combine into unique ordered list of models to try
+    const modelsToTry = [...new Set([
+      requestedModel,
+      provider.defaultModel,
+      ...fallbacks
+    ])].filter(Boolean);
+
+    let lastError = null;
+
+    for (let i = 0; i < modelsToTry.length; i++) {
+      const model = modelsToTry[i];
+      try {
+        console.log(`[LLM API] Attempting chat completion with model: "${model}" (attempt ${i + 1}/${modelsToTry.length})...`);
+        
+        const response = await client.chat.completions.create({
+          ...options,
+          model,
+        });
+
+        console.log(`[LLM API] Success using model: "${model}"`);
+        return response;
+      } catch (error) {
+        lastError = error;
+        const message = error?.message || String(error);
+        console.warn(`[LLM API] Model "${model}" failed: ${message}`);
+
+        // Fast-fail on auth errors since changing model won't fix it
+        const lowerMessage = message.toLowerCase();
+        if (
+          error?.status === 401 ||
+          lowerMessage.includes('incorrect api key') ||
+          lowerMessage.includes('invalid api key')
+        ) {
+          throw error;
+        }
+
+        // If it's a credit / billing error, also fast-fail
+        if (config.name === 'xai' && error?.status === 403 && (lowerMessage.includes('credits') || lowerMessage.includes('licenses'))) {
+          throw error;
+        }
+
+        // Continue to the next fallback model
+        if (i < modelsToTry.length - 1) {
+          console.log(`[LLM API] Falling back to next model...`);
+          continue;
+        }
+      }
+    }
+
+    throw lastError;
+  }
+
+  /**
    * Evaluates user query strictly based on retrieved context.
    * @param {string} question - User question
    * @param {Array<{text: string}>} retrievedChunks - Related vector chunks
@@ -154,14 +223,10 @@ Answer:`;
 
     try {
       const config = this.getProviderConfig();
-      const llmClient = this.getGrokClient();
       
-      console.log(`[LLM API] Client type: ${typeof llmClient}`);
-      console.log(`[LLM API] Client has chat: ${llmClient.chat ? 'YES' : 'NO'}`);
       console.log(`[LLM API] Invoking ${config.label} API for question: "${question}"...`);
       
-      const response = await llmClient.chat.completions.create({
-        model: config.model,
+      const response = await this.chatCompletion({
         max_tokens: 1024,
         temperature: 0.0,
         messages: [

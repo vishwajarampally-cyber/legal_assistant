@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import { NavLink, Routes, Route } from 'react-router-dom';
 import FileUploader from './components/FileUploader.jsx';
 import ChatInterface from './components/ChatInterface.jsx';
+import EvaluationDashboard from './components/EvaluationDashboard.jsx';
 
 export default function App() {
   const [uploadedFiles, setUploadedFiles] = useState([]);
@@ -65,37 +67,55 @@ export default function App() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <h1 className="brand-name">Legal Assistant</h1>
-          <span className="brand-version">Legal</span>
+          <div>
+            <h1 className="brand-name">Legal Assistant</h1>
+            <span className="brand-version">Legal</span>
+          </div>
         </div>
 
-        <div className="status-badge">
-          <div className={`status-dot ${hasDocuments ? 'active' : ''}`}></div>
-          <span>
-            {hasDocuments
-              ? `${uploadedFiles.length} legal document${uploadedFiles.length === 1 ? '' : 's'} indexed`
-              : 'Upload legal documents to begin'
-            }
-          </span>
+        <div className="header-actions">
+          <nav className="top-nav">
+            <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/">Workspace</NavLink>
+            <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/evaluation">Evaluation</NavLink>
+          </nav>
+          <div className="status-badge">
+            <div className={`status-dot ${hasDocuments ? 'active' : ''}`}></div>
+            <span>
+              {hasDocuments
+                ? `${uploadedFiles.length} legal document${uploadedFiles.length === 1 ? '' : 's'} indexed`
+                : 'Upload legal documents to begin'
+              }
+            </span>
+          </div>
         </div>
       </header>
 
-      <main className="dashboard-grid">
-        <section className="control-panel">
-          <FileUploader
-            uploadedFiles={uploadedFiles}
-            onUploadSuccess={handleUploadSuccess}
-            onReset={handleReset}
-            backendUrl={BACKEND_URL}
-          />
-        </section>
+      <main className="app-content">
+        <Routes>
+          <Route
+            path="/"
+            element={(
+              <div className="dashboard-grid">
+                <section className="control-panel">
+                  <FileUploader
+                    uploadedFiles={uploadedFiles}
+                    onUploadSuccess={handleUploadSuccess}
+                    onReset={handleReset}
+                    backendUrl={BACKEND_URL}
+                  />
+                </section>
 
-        <section className="chat-panel">
-          <ChatInterface
-            uploadedFiles={uploadedFiles}
-            backendUrl={BACKEND_URL}
+                <section className="chat-panel">
+                  <ChatInterface
+                    uploadedFiles={uploadedFiles}
+                    backendUrl={BACKEND_URL}
+                  />
+                </section>
+              </div>
+            )}
           />
-        </section>
+          <Route path="/evaluation" element={<EvaluationDashboard backendUrl={BACKEND_URL} />} />
+        </Routes>
       </main>
     </div>
   );
