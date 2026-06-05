@@ -125,8 +125,28 @@ export default function FileUploader({
       setUploadProgress(0);
       setPipelineStep(0);
       setUploadStatus('');
-      setErrorMsg(error.response?.data?.error || error.message || 'An error occurred during file ingestion.');
+      
+      // Better error handling for different error types
+      let errorMsg = 'An error occurred during file ingestion.';
+      if (error.response?.data?.error) {
+        errorMsg = error.response.data.error;
+      } else if (error.response?.status) {
+        errorMsg = `Server error (${error.response.status}): ${error.response.statusText}`;
+      } else if (error.message === 'Network Error') {
+        errorMsg = 'Cannot connect to backend server. Make sure the backend is running on port 5000.';
+      } else if (error.message) {
+        errorMsg = error.message;
+      }
+      
+      setErrorMsg(errorMsg);
       console.error('File upload error:', error);
+      console.error('Error response data:', error.response?.data);
+      console.error('Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+      });
     }
   };
 

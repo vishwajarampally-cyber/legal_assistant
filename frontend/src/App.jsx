@@ -15,18 +15,29 @@ export default function App() {
 
     async function loadBackendDocuments() {
       try {
+        console.log('[DOCUMENT LOAD] Fetching documents from:', `${BACKEND_URL}/api/documents`);
         const response = await axios.get(`${BACKEND_URL}/api/documents`);
+        
         if (!isMounted) return;
 
+        console.log('[DOCUMENT LOAD] Response received:', response.data);
         const backendFiles = (response.data.documents || []).map((file) => ({
           name: file.filename,
           chunkCount: file.chunkCount || 0,
           charCount: file.charCount || 0,
         }));
 
+        console.log('[DOCUMENT LOAD] Processed files:', backendFiles);
         setUploadedFiles(backendFiles.slice(0, 50));
       } catch (error) {
-        console.warn('Could not load backend document catalog:', error.message || error);
+        console.warn('[DOCUMENT LOAD ERROR]', error.message || error);
+        console.error('[DOCUMENT LOAD DETAILS]', {
+          message: error.message,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          url: `${BACKEND_URL}/api/documents`,
+        });
       }
     }
 

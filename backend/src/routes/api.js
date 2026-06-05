@@ -13,6 +13,15 @@ const router = express.Router();
 
 router.use(requestLogger);
 
+// Add timeout middleware for uploads (5 minutes)
+router.use((req, res, next) => {
+  if (req.path === '/upload') {
+    req.setTimeout(5 * 60 * 1000); // 5 minutes
+    res.setTimeout(5 * 60 * 1000);
+  }
+  next();
+});
+
 const uploadDir = process.env.UPLOAD_DIR || os.tmpdir();
 
 const storage = multer.diskStorage({

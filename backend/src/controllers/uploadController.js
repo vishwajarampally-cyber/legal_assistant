@@ -7,13 +7,16 @@ export async function handleUpload(req, res, next) {
     const files = req.files?.length ? req.files : (req.file ? [req.file] : []);
 
     if (files.length === 0) {
+      console.warn('[UPLOAD] No files uploaded');
       return res.status(400).json({ error: 'No files uploaded. Please attach PDF, DOCX, or TXT legal documents.' });
     }
 
     if (files.length > 50) {
+      console.warn('[UPLOAD] Too many files:', files.length);
       return res.status(400).json({ error: 'You can upload up to 50 legal documents at once.' });
     }
 
+    console.log(`[UPLOAD] Starting ingestion for ${files.length} file(s)`);
     const results = [];
 
     for (const file of files) {
@@ -23,6 +26,7 @@ export async function handleUpload(req, res, next) {
       if (file.buffer) {
         buffer = file.buffer;
       } else if (file.path) {
+        console.log(`[UPLOAD] Reading file from path: ${file.path}`);
         buffer = await fs.readFile(file.path);
         try {
           await fs.unlink(file.path);
@@ -35,15 +39,26 @@ export async function handleUpload(req, res, next) {
 
       console.log(`[UPLOAD] Legal document received: ${originalname} (${mimetype}), size ${buffer.length} bytes`);
 
-      const storedDocument = await DocumentStoreService.saveUploadedDocument({ buffer, originalname, mimetype });
-      const result = await IngestionService.ingestDocument({ buffer, originalname, mimetype });
-      await DocumentStoreService.upsertDocument({
-        ...storedDocument,
-        chunkCount: result.chunkCount,
-        charCount: result.charCount,
-      });
+      try {
+        console.log(`[UPLOAD] Saving document: ${originalname}`);
+        const storedDocument = await DocumentStoreService.saveUploadedDocument({ buffer, originalname, mimetype });
+        
+        console.log(`[UPLOAD] Ingesting document: ${originalname}`);
+        const result = await IngestionService.ingestDocument({ buffer, originalname, mimetype });
+        
+        console.log(`[UPLOAD] Upserting document metadata: ${originalname}`);
+        await DocumentStoreService.upsertDocument({
+          ...storedDocument,
+          chunkCount: result.chunkCount,
+          charCount: result.charCount,
+        });
 
-      results.push(result);
+        results.push(result);
+        console.log(`[UPLOAD] ✓ Successfully ingested: ${originalname}`);
+      } catch (fileError) {
+        console.error(`[UPLOAD ERROR] Failed to ingest ${originalname}:`, fileError);
+        throw fileError;
+      }
     }
 
     const totals = results.reduce(
@@ -54,6 +69,7 @@ export async function handleUpload(req, res, next) {
       { chunkCount: 0, charCount: 0 }
     );
 
+    console.log(`[UPLOAD] ✓ Successfully indexed ${results.length} document(s)`);
     return res.status(200).json({
       success: true,
       files: results,

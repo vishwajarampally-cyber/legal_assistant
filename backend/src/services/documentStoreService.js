@@ -106,7 +106,7 @@ export class DocumentStoreService {
         uploadedAt,
         indexedAt,
       }))
-      .sort((a, b) => new Date(a.uploadedAt || 0) - new Date(b.uploadedAt || 0));
+      .sort((a, b) => new Date(b.uploadedAt || 0) - new Date(a.uploadedAt || 0));
   }
 
   static mergeDocuments(seedDocuments, storedDocuments) {
