@@ -1,22 +1,22 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "frontend/dist",
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/[...path]"
+      "source": "/api/(.*)",
+      "destination": "/api/[...path]"
     },
     {
-      "src": "/assets/(.*)",
-      "dest": "/assets/$1"
+      "source": "/assets/:match*",
+      "destination": "/assets/:match*"
     },
     {
-      "src": "/favicon.ico",
-      "dest": "/favicon.ico"
+      "source": "/favicon.ico",
+      "destination": "/favicon.ico"
     },
     {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
