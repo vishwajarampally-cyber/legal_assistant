@@ -212,6 +212,20 @@ export default function EvaluationDashboard({ backendUrl }) {
       {error && <div className="alert-box">{error}</div>}
       {loading && <div className="alert-box alert-loading">Loading evaluation metrics…</div>}
 
+      {!loading && !analytics && !history.length && (
+        <div className="glass-card" style={{ textAlign: 'center', padding: '3rem 2rem', marginBottom: '2rem' }}>
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📊</div>
+          <h2 style={{ color: 'var(--text-primary)', marginBottom: '0.75rem' }}>No Evaluation Data Yet</h2>
+          <p style={{ color: 'var(--text-secondary)', maxWidth: '480px', margin: '0 auto 1.5rem' }}>
+            Run your first evaluation using the form below. Ask a question, provide the generated answer,
+            retrieved contexts, and a ground truth reference — then click <strong>Run Evaluation</strong>.
+          </p>
+          <p style={{ color: 'var(--text-muted, #888)', fontSize: '0.85rem' }}>
+            Metrics tracked: Faithfulness · Relevancy · Precision · Recall · Noise Sensitivity
+          </p>
+        </div>
+      )}
+
       <section className="metrics-grid">
         {analytics && [
           { label: 'Average Faithfulness', value: analytics.averageFaithfulness },

@@ -30,7 +30,11 @@ export class DocumentStoreService {
   }
 
   static async ensureStore() {
-    await fs.mkdir(this.getUploadDir(), { recursive: true });
+    try {
+      await fs.mkdir(this.getUploadDir(), { recursive: true });
+    } catch {
+      // Silently ignore on read-only / ephemeral Vercel filesystem
+    }
   }
 
   static async readManifest() {
@@ -39,19 +43,23 @@ export class DocumentStoreService {
       const raw = await fs.readFile(this.getManifestPath(), 'utf8');
       const parsed = JSON.parse(raw);
       return Array.isArray(parsed.documents) ? parsed.documents : [];
-    } catch (error) {
-      if (['ENOENT', 'EROFS', 'EACCES'].includes(error.code)) return [];
-      throw error;
+    } catch {
+      // Return empty list on any filesystem error (e.g. Vercel ephemeral FS)
+      return [];
     }
   }
 
   static async writeManifest(documents) {
-    await this.ensureStore();
-    await fs.writeFile(
-      this.getManifestPath(),
-      JSON.stringify({ documents }, null, 2),
-      'utf8'
-    );
+    try {
+      await this.ensureStore();
+      await fs.writeFile(
+        this.getManifestPath(),
+        JSON.stringify({ documents }, null, 2),
+        'utf8'
+      );
+    } catch {
+      // Silently ignore on read-only / ephemeral Vercel filesystem
+    }
   }
 
   static async saveUploadedDocument({ buffer, originalname, mimetype }) {
@@ -59,10 +67,16 @@ export class DocumentStoreService {
       throw new Error('Missing uploaded document data.');
     }
 
-    await this.ensureStore();
     const storedName = safeStoredName(originalname);
     const storedPath = path.join(this.getUploadDir(), storedName);
-    await fs.writeFile(storedPath, buffer);
+
+    try {
+      await this.ensureStore();
+      await fs.writeFile(storedPath, buffer);
+    } catch {
+      // Silently skip disk persistence on Vercel / read-only FS
+      // The buffer is still passed through for in-memory ingestion
+    }
 
     return {
       filename: originalname,

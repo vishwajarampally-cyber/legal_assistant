@@ -15,27 +15,39 @@ function isMongoEnabled() {
 }
 
 async function ensureLocalStorage() {
-  await fs.mkdir(path.dirname(EVALUATION_FILE), { recursive: true });
   try {
-    await fs.access(EVALUATION_FILE);
+    await fs.mkdir(path.dirname(EVALUATION_FILE), { recursive: true });
+    try {
+      await fs.access(EVALUATION_FILE);
+    } catch {
+      await fs.writeFile(EVALUATION_FILE, JSON.stringify([], null, 2), 'utf8');
+    }
   } catch {
-    await fs.writeFile(EVALUATION_FILE, JSON.stringify([], null, 2), 'utf8');
+    // Silently ignore on read-only / ephemeral Vercel filesystem
   }
 }
 
 async function readLocalEvaluationRecords() {
-  await ensureLocalStorage();
-  const raw = await fs.readFile(EVALUATION_FILE, 'utf8');
   try {
-    return JSON.parse(raw) || [];
+    await ensureLocalStorage();
+    const raw = await fs.readFile(EVALUATION_FILE, 'utf8');
+    try {
+      return JSON.parse(raw) || [];
+    } catch {
+      return [];
+    }
   } catch {
     return [];
   }
 }
 
 async function writeLocalEvaluationRecords(records) {
-  await ensureLocalStorage();
-  await fs.writeFile(EVALUATION_FILE, JSON.stringify(records, null, 2), 'utf8');
+  try {
+    await ensureLocalStorage();
+    await fs.writeFile(EVALUATION_FILE, JSON.stringify(records, null, 2), 'utf8');
+  } catch {
+    // Silently ignore on read-only / ephemeral Vercel filesystem
+  }
 }
 
 export async function getMongoDb() {
