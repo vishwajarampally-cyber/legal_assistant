@@ -21,15 +21,17 @@ app.use(
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
-// Simple health check route
-app.get('/health', (req, res) => {
+// Simple health check route (accessible at /health and /api/health)
+const healthHandler = (req, res) => {
   return res.status(200).json({
     status: 'online',
-    message: 'Simple Naive RAG backend is running optimally.',
+    message: 'Legal Assistant backend is running.',
     timestamp: new Date().toISOString(),
     langsmith: LangSmithService.getStatus(),
   });
-});
+};
+app.get('/health', healthHandler);
+app.get('/api/health', healthHandler);
 
 // Mount modular endpoints
 app.use('/api', apiRouter);
